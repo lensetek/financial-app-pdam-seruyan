@@ -113,6 +113,9 @@ export default function McpTokensPage() {
     alert('Token disalin ke clipboard. Hanya tampil sekali!');
   };
 
+  // Satu URL lengkap berisi token → copy-paste ke client langsung konek.
+  const fullUrl = (token) => `${window.location.origin}/mcp?token=${encodeURIComponent(token)}`;
+
   const fmtDate = (v) => v ? new Date(v).toLocaleString('id-ID') : '—';
   const roleBadge = (roles) => (roles || []).map(r =>
     <span key={r} style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 600, backgroundColor: r === 'admin' ? '#fde8e8' : (r === 'operator' ? '#fdf6b2' : '#def7ec'), color: r === 'admin' ? '#9b1c1c' : (r === 'operator' ? '#723b13' : '#03543f'), marginRight: 4 }}>{r}</span>
@@ -185,10 +188,11 @@ export default function McpTokensPage() {
 
       {newToken && (
         <div style={{ backgroundColor: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: '0.5rem', padding: '1rem', marginBottom: '1.5rem' }}>
-          <h4 style={{ margin: '0 0 0.5rem', color: '#065f46' }}>✅ Token Dibuat — Salin SEKARANG</h4>
-          <p style={{ margin: '0 0 0.5rem', color: '#065f46' }}>Token ini hanya ditampilkan sekali.</p>
-          <code style={{ display: 'block', background: '#064e3b', color: '#a7f3d0', padding: '0.75rem', borderRadius: '0.375rem', fontFamily: 'monospace', wordBreak: 'break-all', userSelect: 'all' }}>{newToken.plaintext_token}</code>
-          <button onClick={copyPlaintext} style={{ marginTop: '0.5rem', padding: '0.4rem 0.75rem', backgroundColor: '#065f46', color: 'white', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>📋 Salin</button>
+          <h4 style={{ margin: '0 0 0.5rem', color: '#065f46' }}>✅ Token Dibuat — Salin URL SEKARANG</h4>
+          <p style={{ margin: '0 0 0.5rem', color: '#065f46' }}>URL ini berisi token, hanya tampil sekali. Copy-paste ke client (Claude Desktop / Cursor) langsung konek.</p>
+          <code style={{ display: 'block', background: '#064e3b', color: '#a7f3d0', padding: '0.75rem', borderRadius: '0.375rem', fontFamily: 'monospace', wordBreak: 'break-all', userSelect: 'all' }}>{fullUrl(newToken.plaintext_token)}</code>
+          <button onClick={() => { navigator.clipboard.writeText(fullUrl(newToken.plaintext_token)); alert('URL MCP disalin. Tinggal paste di client.'); }} style={{ marginTop: '0.5rem', padding: '0.4rem 0.75rem', backgroundColor: '#065f46', color: 'white', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>📋 Salin URL</button>
+          <button onClick={copyPlaintext} style={{ marginTop: '0.5rem', marginLeft: '0.5rem', padding: '0.4rem 0.75rem', backgroundColor: 'transparent', color: '#065f46', border: '1px solid #065f46', borderRadius: '0.375rem', cursor: 'pointer' }}>Salin token saja</button>
         </div>
       )}
 

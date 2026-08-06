@@ -33,7 +33,9 @@ module.exports = function (db) {
     }
 
     // 2. Auth: bearer token → verify → req.auth
-    const token = extractBearer(req);
+    // Dukungan token via query param (?token=... atau ?access_token=...) utk koneksi sekali-copy URL.
+    let token = extractBearer(req);
+    if (!token) token = req.query.token || req.query.access_token || req.header('x-mcp-token');
     if (!token) {
       return res.status(401).json({ jsonrpc: '2.0', error: { code: -32000, message: 'unauthorized' } });
     }
