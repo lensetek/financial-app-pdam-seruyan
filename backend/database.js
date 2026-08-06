@@ -109,6 +109,40 @@ async function initDatabase() {
     )
   `);
 
+  await run(`
+    CREATE TABLE IF NOT EXISTS mcp_tokens (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      token_prefix TEXT NOT NULL,
+      roles TEXT[] NOT NULL DEFAULT ARRAY['viewer']::TEXT[],
+      created_by TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      last_used_at TIMESTAMP,
+      expires_at TIMESTAMP,
+      revoked_at TIMESTAMP,
+      revoked_by TEXT,
+      notes TEXT DEFAULT ''
+    )
+  `);
+  await run(`CREATE INDEX IF NOT EXISTS idx_mcp_tokens_hash ON mcp_tokens(token_hash)`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_mcp_tokens_active ON mcp_tokens(revoked_at) WHERE revoked_at IS NULL`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_mcp_tokens_roles ON mcp_tokens USING GIN(roles)`);
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS mcp_token_audit (
+      id SERIAL PRIMARY KEY,
+      token_id INTEGER REFERENCES mcp_tokens(id) ON DELETE SET NULL,
+      event TEXT NOT NULL,
+      tool_name TEXT DEFAULT '',
+      ip_address TEXT DEFAULT '',
+      detail TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await run(`CREATE INDEX IF NOT EXISTS idx_mcp_audit_token ON mcp_token_audit(token_id)`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_mcp_audit_time ON mcp_token_audit(created_at)`);
+
   // Insert Default COA if empty
   const countRes = await queryOne('SELECT COUNT(*) as cnt FROM akun');
   if (parseInt(countRes.cnt) === 0) {

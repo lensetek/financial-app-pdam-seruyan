@@ -16,6 +16,10 @@ async function main() {
   app.use('/api/laporan', require('./routes/laporan')(db));
   app.use('/api/process', require('./routes/process')(db));
   app.use('/api/auth', require('./routes/auth')(db));
+  app.use('/api/admin/mcp-tokens', require('./routes/admin-mcp-tokens')(db));
+
+  // MCP Streamable HTTP (auth via bearer token MCP). Mount sebelum static catch-all.
+  app.all('/mcp', require('./mcp/mount')(db));
 
   if (!process.env.VERCEL) {
     const distPath = path.join(__dirname, '..', 'frontend', 'dist');

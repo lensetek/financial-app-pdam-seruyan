@@ -1,71 +1,28 @@
 const express = require('express');
 const router = express.Router();
+const { listTransaksi, getTransaksi, createTransaksi, deleteTransaksi } = require('../services/transaksiService');
 
 module.exports = function(db) {
   router.get('/', async (req, res) => {
-    const transaksi = await db.queryAll(`
-      SELECT t.*, GROUP_CONCAT(
-        '{"akun_id":' || j.akun_id || ',"akun_nama":"' || a.nama || '","debit":' || j.debit || ',"kredit":' || j.kredit || '}'
-      ) as jurnal
-      FROM transaksi t
-      LEFT JOIN jurnal j ON j.transaksi_id = t.id
-      LEFT JOIN akun a ON a.id = j.akun_id
-      GROUP BY t.id
-      ORDER BY t.id DESC
-    `);
+    const transaksi = await listTransaksi(db);
+    res.json(transaksi);
+  });
 
-    const result = transaksi.map(t => ({
-      ...t,
-      jurnal: t.jurnal ? JSON.parse(`[${t.jurnal}]`) : []
-    }));
-
-    res.json(result);
+  router.get('/:id', async (req, res) => {
+    const tx = await getTransaksi(db, req.params.id);
+    if (!tx) return res.status(404).json({ error: 'Transaksi tidak ditemukan' });
+    res.json(tx);
   });
 
   router.post('/', async (req, res) => {
     const { tanggal, deskripsi, entries } = req.body;
-
-    if (!deskripsi || !entries || entries.length < 2) {
-      return res.status(400).json({ error: 'Data tidak lengkap' });
-    }
-
-    const totalDebit = entries.reduce((s, e) => s + (parseFloat(e.debit) || 0), 0);
-    const totalKredit = entries.reduce((s, e) => s + (parseFloat(e.kredit) || 0), 0);
-
-    if (Math.abs(totalDebit - totalKredit) > 0.01) {
-      return res.status(400).json({ error: 'Total debit dan kredit tidak sama' });
-    }
-
-    const tgl = tanggal || new Date().toISOString().slice(0, 10);
-    await db.queryRun('INSERT INTO transaksi (tanggal, deskripsi) VALUES (?, ?)', [tgl, deskripsi]);
-
-    const result = await db.queryOne('SELECT MAX(id) as id FROM transaksi');
-    const tId = result.id;
-
-    for (const e of entries) {
-      await db.queryRun('INSERT INTO jurnal (transaksi_id, akun_id, debit, kredit) VALUES (?, ?, ?, ?)', [
-        tId, e.akun_id, parseFloat(e.debit) || 0, parseFloat(e.kredit) || 0
-      ]);
-    }
-
-    const transaksi = await db.queryOne(`
-      SELECT t.*, GROUP_CONCAT(
-        '{"akun_id":' || j.akun_id || ',"akun_nama":"' || a.nama || '","debit":' || j.debit || ',"kredit":' || j.kredit || '}'
-      ) as jurnal
-      FROM transaksi t
-      LEFT JOIN jurnal j ON j.transaksi_id = t.id
-      LEFT JOIN akun a ON a.id = j.akun_id
-      WHERE t.id = ?
-      GROUP BY t.id
-    `, [tId]);
-
-    transaksi.jurnal = JSON.parse(`[${transaksi.jurnal}]`);
-    res.status(201).json(transaksi);
+    const result = await createTransaksi(db, { tanggal, deskripsi, entries });
+    if (result.error) return res.status(400).json({ error: result.error });
+    res.status(201).json(result.data);
   });
 
   router.delete('/:id', async (req, res) => {
-    await db.queryRun('DELETE FROM jurnal WHERE transaksi_id = ?', [req.params.id]);
-    await db.queryRun('DELETE FROM transaksi WHERE id = ?', [req.params.id]);
+    await deleteTransaksi(db, req.params.id);
     res.json({ message: 'Transaksi dihapus' });
   });
 

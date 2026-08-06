@@ -191,6 +191,84 @@ npm start
 ```
 Server berjalan di `http://localhost:3000`.
 
+## MCP Server (Model Context Protocol)
+
+Aplikasi mengekspos seluruh proses bisnis sebagai **MCP server** (Streamable HTTP) di `/mcp`. Client seperti **Claude Desktop**, **Cursor**, atau agent lain bisa memanggil tool MCP dengan cukup **URL + bearer token** sesuai role.
+
+### Transport
+
+- URL: `http://localhost:3000/mcp` (production pakai HTTPS host kamu)
+- Metode: `POST`/`GET`/`DELETE` (Streamable HTTP, protokol MCP `2024-11-05`)
+
+### Aktifkan
+
+Set variabel env di `.env`:
+
+```
+MCP_ENABLED=true            # false → /mcp return 503
+ADMIN_TOKEN=<random>        # fallback bootstrap admin (opsional; auth utama sedot Supabase JWT role=admin)
+MCP_RATE_LIMIT_PER_MIN=60
+```
+
+### Buat Token
+
+1. Login ke web app → menu **Token MCP** (sudah di-hide di nav, tekan di dashboard).
+   > Butuh role `admin` di Supabase (rekomendasi di bawah) atau `ADMIN_TOKEN`.
+2. Klik **+ Buat Token** → isi nama + role (`viewer`/`operator`/`admin`) + masa berlaku hari.
+3. Salin **plaintext token** — hanya tampil sekali.
+4. Pasang di client:
+
+   ```json
+   // ~/.config/Claude/claude_desktop_config.json
+   { "mcpServers": {
+     "pdam": {
+       "url": "http://localhost:3000/mcp",
+       "headers": { "Authorization": "Bearer <TOKEN>" }
+     }
+   } }
+   ```
+
+### Role & Tool
+
+| Role | Akses |
+|------|-------|
+| `viewer` | list akun, laporan JSON, list files, download, audit read |
+| `operator` | viewer + buat/hapus transaksi, generate laporan XLSX, upload file, run ETL/bulk/run_all, restore trash |
+| `admin` | operator + delete trash permanent + kelola token (create/revoke/extend/delete) |
+
+Pen filter dilakukan 2 lapis: `tools/list` (client hanya lihat tool yang diizinkan role) + runtime check di `tools/call` (anti bypass).
+
+### Setup admin role di Supabase
+
+Admin auth hybrid: kalau `ADMIN_TOKEN` terisi → gitu terima. Selain itu, verifikasi **Supabase JWT** dan cek `app_metadata.role === 'admin'`. Set sekali di SQL editor:
+
+```sql
+UPDATE auth.users
+SET app_metadata = jsonb_set(app_metadata, '{role}', '"admin"')
+WHERE email = '<email_admin>';
+```
+
+### Uji cepat (curl)
+
+```bash
+# 1. Handle initialize (ambil Mcp-Session-Id dari header)
+curl -X POST http://localhost:3000/mcp \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
+
+# 2. List tools (pakai Mcp-Session-Id dari langkah 1)
+curl -X POST http://localhost:3000/mcp \
+  -H "Authorization: Bearer <TOKEN>" -H "Mcp-Session-Id: <SID>" \
+  -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+```
+
+### Laporan XLSX
+
+Report generator nulis file ke `output-app/` (local) atau `/tmp` (serverless). Tool `download_output_file` ambil file utk dikirim balik ke client. Lihat `backend/mcp/registry.js` untuk daftar lengkap tool.
+
 ### Deploy ke Firebase
 ```bash
 firebase deploy

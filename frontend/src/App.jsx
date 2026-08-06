@@ -5,6 +5,7 @@ import LabaRugi from './components/LabaRugi'
 import Neraca from './components/Neraca'
 import ProcessPage from './components/ProcessPage'
 import AuditTrailPage from './components/AuditTrailPage'
+import McpTokensPage from './components/McpTokensPage'
 import FirebasePage from './components/FirebasePage'
 import Login from './components/Login'
 import { getTransaksi } from './api'
@@ -18,6 +19,7 @@ const navItems = [
   { id: 'neraca', label: 'Neraca', icon: '⚖️' },
   { id: 'process', label: 'Proses', icon: '⚡' },
   { id: 'audit-trail', label: 'Riwayat Audit', icon: '🔒' },
+  { id: 'mcp-tokens', label: 'Token MCP', icon: '🔑' },
 ]
 
 export default function App() {
@@ -370,6 +372,7 @@ export default function App() {
           { page === 'neraca' && <Neraca /> }
           { page === 'process' && <ProcessPage /> }
           { page === 'audit-trail' && <AuditTrailPage /> }
+          { page === 'mcp-tokens' && <McpTokensPage /> }
           { page === 'firebase' && <FirebasePage /> }
         </main>
       </div>
