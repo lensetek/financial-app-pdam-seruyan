@@ -28,17 +28,22 @@ async function generateNeracaLajur(db, outputPath, exportDate = null) {
     data.push(['', '', 'D', 'K', 'D', 'K', 'D', 'K', 'D', 'K', 'D', 'K']);
     data.push(['', '', 'PER 01 JANUARI 2025', '', '', '', 'PER ' + LAST_DAY[MONTHS[monthIndex].name] + ' ' + MONTHS[monthIndex].name + ' ' + tahunCetak, '', 'PER ' + LAST_DAY[MONTHS[monthIndex].name] + ' ' + MONTHS[monthIndex].name + ' ' + tahunCetak, '', 'PER ' + LAST_DAY[MONTHS[monthIndex].name] + ' ' + MONTHS[monthIndex].name + ' ' + tahunCetak, '']);
 
-    for (const a of akunList) {
-      const saldoAwal = 0;
-      const entries = await db.queryAll(`
-        SELECT COALESCE(SUM(j.debit), 0) as total_debit, COALESCE(SUM(j.kredit), 0) as total_kredit
-        FROM jurnal j
-        JOIN transaksi t ON t.id = j.transaksi_id
-        WHERE j.akun_id = ? AND t.tanggal <= ?
-      `, [a.id, endDate]);
+    // Optimisasi: 1 query aggregate semua akun per bulan (bukan 1 query per akun).
+    const aggRows = await db.queryAll(`
+      SELECT j.akun_id,
+             COALESCE(SUM(j.debit), 0) as total_debit,
+             COALESCE(SUM(j.kredit), 0) as total_kredit
+      FROM jurnal j
+      JOIN transaksi t ON t.id = j.transaksi_id
+      WHERE t.tanggal <= ?
+      GROUP BY j.akun_id
+    `, [endDate]);
+    const aggMap = new Map(aggRows.map(r => [r.akun_id, r]));
 
-      const totalD = parseFloat(entries[0].total_debit) || 0;
-      const totalK = parseFloat(entries[0].total_kredit) || 0;
+    for (const a of akunList) {
+      const agg = aggMap.get(a.id) || { total_debit: 0, total_kredit: 0 };
+      const totalD = parseFloat(agg.total_debit) || 0;
+      const totalK = parseFloat(agg.total_kredit) || 0;
       const neracaSaldo = a.saldo_normal === 'debit' ? totalD - totalK : totalK - totalD;
       const neracaAkhir = a.saldo_normal === 'debit' ? totalD - totalK : totalK - totalD;
 

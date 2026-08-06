@@ -110,8 +110,10 @@ async function generateAllReports(db, outputDir, exportDate = null) {
   }
 
   // If there are no transactions, skip generating reports – nothing to output
+  // Postgres COUNT(*) returns a string ('0'), so coerce to number for the check.
   const txnCountRes = await db.queryOne('SELECT COUNT(*) as cnt FROM transaksi');
-  if (!txnCountRes || (txnCountRes.cnt ?? 0) === 0) {
+  const cnt = parseInt(txnCountRes && txnCountRes.cnt, 10) || 0;
+  if (!cnt) {
     // No data – return empty result list (no files generated)
     return [];
   }
